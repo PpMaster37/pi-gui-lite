@@ -1,19 +1,60 @@
 from luma.core.interface.serial import i2c
 from luma.core.render import canvas
 from luma.oled.device import ssd1309
+from registry import load_registry, load_module
 
 from time import sleep
 
 from gpiozero import Button, LED
 
-import blinkhello as blinkhello
-import titlescreen as titlescreen
-import christmaslights as clights
-
-SCRIPT_LIBRARY = [titlescreen, blinkhello, clights]
-SCRIPT_SELECT = 0
+import examples.titlescreen as titlescreen
 
 requested_script = None
+
+registry = load_registry()
+loaded_scripts = {}
+loaded_scripts["title"] = titlescreen
+
+for name, info in registry["modules"].items():
+    if not info.get("enabled", True):
+        print(f"skipping disabled: {name}")
+        continue
+    try:
+        loaded_scripts[name] = load_module(name, info)
+        print(f"Loaded: {name} from {info['path']}")
+    except Exception as e:
+        print(f"Failed to load {name}: {e}")
+
+class AppCycler:
+    def __init__(self, data):
+        self.data = data
+        self.index = 0
+
+    def keys(self):
+        return list(self.data.keys())
+
+    def current(self):
+        keys = self.keys()
+        if not keys:
+            return None, None
+        name = keys[self.index % len(keys)]
+        return name, self.data[name]
+
+    def next(self):
+        keys = self.keys()
+        if not keys:
+            return None, None
+        self.index = (self.index + 1) % len(keys)
+        return self.current()
+
+    def prev(self):
+        keys = self.keys()
+        if not keys:
+            return None, None
+        self.index = (self.index - 1) % len(keys)
+        return self.current()
+
+app_cycler = AppCycler(loaded_scripts)
 
 b0 = Button(22, pull_up=None, active_state=False, bounce_time=0.05)
 b1 = Button(23, pull_up=None, active_state=False, bounce_time=0.05)
@@ -28,49 +69,33 @@ device = ssd1309(serial, rotate=2, width=128, height=64)
 serial.command(0xAF)
 
 def main_loop():
-    global SCRIPT_SELECT
-    SCRIPT_SELECT = 0
     print("MAIN LOOP RUNNING")
     global requested_script
     requested_script = None
     while requested_script is None:
         with canvas(device) as draw:
             draw.rectangle(device.bounding_box, outline="white", fill="black")
-            draw.text((10, 20), SCRIPT_LIBRARY[SCRIPT_SELECT].file_text_data, fill="white")
+            draw.text((10, 20), app_cycler.current()[0], fill="white")
         sleep(0.2)
 
 def main_rebind():
     print("REBOUND")
-    b4.when_pressed = cycleRight
-    b0.when_pressed = cycleLeft
+    b4.when_pressed = app_cycler.next
+    b0.when_pressed = app_cycler.prev
     b1.when_pressed = enterScript
-
-def cycleRight():
-    print("RIGHT PRESSED")
-    global SCRIPT_SELECT
-    if(SCRIPT_SELECT == len(SCRIPT_LIBRARY) - 1):
-        SCRIPT_SELECT = 0
-    else:
-        SCRIPT_SELECT += 1
-
-def cycleLeft():
-    print("LEFT PRESSED")
-    global SCRIPT_SELECT
-    if(SCRIPT_SELECT == 0):
-        SCRIPT_SELECT = len(SCRIPT_LIBRARY) - 1
-    else:
-        SCRIPT_SELECT -= 1
+    b2.when_pressed = None
+    b3.when_pressed = None
 
 def enterScript():
     global requested_script
-    requested_script = SCRIPT_SELECT
+    requested_script = app_cycler.current()[1]
 
 sleep(1)
 while True:
     main_rebind()
     main_loop()
 
-    if requested_script == 0:
+    if app_cycler.current()[0] == "title":
         continue
 
     b0.when_pressed = None
@@ -79,4 +104,4 @@ while True:
     b3.when_pressed = None
     b4.when_pressed = None
 
-    SCRIPT_LIBRARY[requested_script].run(device, BUTTON_ARRAY)
+    requested_script.run(device, BUTTON_ARRAY)

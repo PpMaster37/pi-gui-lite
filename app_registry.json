@@ -1,0 +1,10 @@
+{
+  "modules": {
+    "blink": {
+      "path": "blinkhello.py",
+      "git_url": "",
+      "is_git": false,
+      "enabled": true
+    }
+  }
+}
