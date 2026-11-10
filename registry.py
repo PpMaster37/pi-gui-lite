@@ -54,7 +54,7 @@ def load_gits():
     reg = load_registry()
     for name, info in reg["modules"].items():
         if info.get("is_git", False):
-            return_list.append((name, info))
+            return_list.append({"name": name, "info": info})
     return return_list
 
 def get_username():

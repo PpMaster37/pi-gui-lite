@@ -20,6 +20,7 @@ git_api_url = f"https://api.github.com/users/{git_username}/repos"
 selected = 0
 top = 0
 is_cloning = False
+is_pulling = False
 
 def draw_menu(device, items, line_h=12):
     global selected
@@ -58,7 +59,7 @@ def change():
         selected_text = "CLONE"
         selected_coord = CLONE_COORDS
 
-def clone(device, repos):
+def clone(repos):
     global selected
     SELECTED_REPO = repos[selected]
     global is_cloning
@@ -71,17 +72,33 @@ def clone(device, repos):
     full_path = Path(clone_path) / SELECTED_REPO["name"]
     add_git_repo(SELECTED_REPO["name"], str(full_path), SELECTED_REPO["html_url"])
 
+def pull(repos):
+    global selected
+    SELECTED_REPO = repos[selected]
+    global is_pulling
+    is_pulling = True
+    print(SELECTED_REPO["info"]["git_url"])
+    full_path = Path(get_clone_path()) / SELECTED_REPO["name"]
+    subprocess.run(["git", "pull"], cwd=str(full_path))
+
 def select(device, BUTTON_ARRAY):
     global selected_text
     global is_cloning
+    global is_pulling
     exitButton = BUTTON_ARRAY[3]
     upButton = BUTTON_ARRAY[0]
     downButton = BUTTON_ARRAY[4]
     selectButton = BUTTON_ARRAY[1]
     if(selected_text == "PULL"):
         git_list = load_gits()
-        while not exitButton.is_pressed:
+        selectButton.when_pressed = lambda: pull(git_list)
+        while not exitButton.is_pressed and not is_pulling:
             draw_menu(device, git_list)
+        if(is_pulling):
+            with canvas(device) as draw:
+                draw.text((20,20), "PULL COMPLETED", fill="white")
+            sleep(2)
+            is_pulling = False
     else:
         response = requests.get(git_api_url)
         print(git_api_url)
@@ -95,15 +112,19 @@ def select(device, BUTTON_ARRAY):
             print("GETTING REPOS FAILED")
         upButton.when_pressed = lambda: move(device, -1, repositories)
         downButton.when_pressed = lambda: move(device, 1, repositories)
-        selectButton.when_pressed = lambda: clone(device, repositories)
+        selectButton.when_pressed = lambda: clone(repositories)
         while not exitButton.is_pressed and not is_cloning:
-            print(is_cloning)
             draw_menu(device, repositories)
         if(is_cloning):
             with canvas(device) as draw:
                 draw.text((20,20), "CLONE COMPLETED", fill="white")
             sleep(2)
             is_cloning = False
+        if(is_pulling):
+            with canvas(device) as draw:
+                draw.text((20,20), "PULL COMPLETED", fill="white")
+            sleep(2)
+            is_pulling = False
 
 def run(device, BUTTON_ARRAY):
     rightButton = BUTTON_ARRAY[4]

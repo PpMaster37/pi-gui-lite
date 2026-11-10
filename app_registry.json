@@ -1,12 +1,18 @@
 {
   "modules": {
     "blink": {
-      "path": "blinkhello.py",
+      "path": "examples/blinkhello.py",
+      "git_url": "",
+      "is_git": false,
+      "enabled": true
+    },
+    "chlights": {
+      "path": "examples/christmaslights.py",
       "git_url": "",
       "is_git": false,
       "enabled": true
     }
   },
-  "git_clone_path": "/home/p37/gitrepos",
-  "git_username": "Pepps233"
+  "git_clone_path": "",
+  "git_username": "PpMaster37"
 }
